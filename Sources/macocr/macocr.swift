@@ -9,25 +9,43 @@ struct MacOCR: ParsableCommand {
         abstract: "A CLI tool to extract text from images using macOS Vision framework."
     )
 
-    @Argument(help: "The path to the image file to OCR.")
-    var imagePath: String
+    @Argument(help: "The path to the image file to OCR. If omitted, reads from stdin.")
+    var imagePath: String?
 
     @Flag(name: .shortAndLong, help: "Use fast recognition level (less accurate).")
     var fast: Bool = false
 
     mutating func run() throws {
-        let expandedPath = NSString(string: imagePath).expandingTildeInPath
-        let url = URL(fileURLWithPath: expandedPath)
+        let nsImage: NSImage
 
-        guard FileManager.default.fileExists(atPath: expandedPath) else {
-            throw ValidationError("File does not exist at path: \(imagePath)")
+        if let path = imagePath {
+            let expandedPath = NSString(string: path).expandingTildeInPath
+            let url = URL(fileURLWithPath: expandedPath)
+
+            guard FileManager.default.fileExists(atPath: expandedPath) else {
+                throw ValidationError("File does not exist at path: \(path)")
+            }
+
+            guard let img = NSImage(contentsOf: url) else {
+                throw ValidationError("Could not load image at path: \(path)")
+            }
+            nsImage = img
+        } else {
+            // Check if stdin is a terminal.
+            if isatty(FileHandle.standardInput.fileDescriptor) == 1 {
+                // If no file path and interactive terminal, show help or error
+                throw CleanExit.helpRequest()
+            }
+            
+            // Read from stdin
+            guard let data = try FileHandle.standardInput.readToEnd(),
+                  let img = NSImage(data: data) else {
+                throw ValidationError("Could not read valid image data from stdin.")
+            }
+            nsImage = img
         }
 
-        guard let image = NSImage(contentsOf: url) else {
-            throw ValidationError("Could not load image at path: \(imagePath)")
-        }
-
-        guard let cgImage = image.cgImage(forProposedRect: nil, context: nil, hints: nil) else {
+        guard let cgImage = nsImage.cgImage(forProposedRect: nil, context: nil, hints: nil) else {
             throw ValidationError("Could not convert image to CGImage.")
         }
 
