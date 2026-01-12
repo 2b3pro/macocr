@@ -15,6 +15,10 @@ struct MacOCR: ParsableCommand {
     @Flag(name: .shortAndLong, help: "Use fast recognition level (less accurate).")
     var fast: Bool = false
 
+    // TODO: --fix flag not working correctly - spell checker integration needs debugging
+    @Flag(name: .long, help: "Use macOS spell checker to clean up the text result.")
+    var fix: Bool = false
+
     mutating func run() throws {
         let nsImage: NSImage
 
@@ -51,14 +55,20 @@ struct MacOCR: ParsableCommand {
 
         let requestHandler = VNImageRequestHandler(cgImage: cgImage, options: [:])
         
+        let shouldFix = self.fix
+
         let request = VNRecognizeTextRequest { (request, error) in
             guard let observations = request.results as? [VNRecognizedTextObservation] else {
                 return
             }
             
-            let recognizedStrings = observations.compactMap { observation in
+            var recognizedStrings = observations.compactMap { observation in
                 // Return the top candidate
                 return observation.topCandidates(1).first?.string
+            }
+            
+            if shouldFix {
+                recognizedStrings = recognizedStrings.map { MacOCR.correctText($0) }
             }
             
             print(recognizedStrings.joined(separator: "\n"))
@@ -75,5 +85,38 @@ struct MacOCR: ParsableCommand {
             print("Error performing OCR: \(error)")
             throw ExitCode.failure
         }
+    }
+
+    static func correctText(_ text: String) -> String {
+        let checker = NSSpellChecker.shared
+        var correctedText = text
+        
+        // We find all misspellings first
+        var offset = 0
+        
+        var foundRanges: [NSRange] = []
+        
+        while true {
+            let misspelledRange = checker.checkSpelling(of: correctedText, startingAt: offset)
+            if misspelledRange.location == NSNotFound || misspelledRange.location >= correctedText.utf16.count {
+                break
+            }
+            foundRanges.append(misspelledRange)
+            offset = misspelledRange.location + misspelledRange.length
+        }
+        
+        // Now apply fixes backwards
+        for range in foundRanges.reversed() {
+             guard let guesses = checker.guesses(forWordRange: range, in: correctedText, language: nil, inSpellDocumentWithTag: 0),
+                   let topGuess = guesses.first else {
+                 continue
+             }
+             
+             if let swiftRange = Range(range, in: correctedText) {
+                 correctedText.replaceSubrange(swiftRange, with: topGuess)
+             }
+        }
+        
+        return correctedText
     }
 }

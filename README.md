@@ -50,6 +50,7 @@ curl -s https://example.com/image.png | macocr
 ### Options
 
 - `--fast`, `-f`: Use the fast recognition level (less accurate but quicker).
+- `--fix`: Use macOS spell checker to clean up OCR results. *(experimental - not yet working)*
 - `--help`, `-h`: Show help information.
 
 ### Examples
