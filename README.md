@@ -40,6 +40,13 @@ Basic usage:
 macocr path/to/image.jpg
 ```
 
+Piping from stdin:
+```bash
+cat image.png | macocr
+# or
+curl -s https://example.com/image.png | macocr
+```
+
 ### Options
 
 - `--fast`, `-f`: Use the fast recognition level (less accurate but quicker).
