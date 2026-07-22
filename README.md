@@ -47,9 +47,15 @@ cat image.png | macocr
 curl -s https://example.com/image.png | macocr
 ```
 
+Reading an image from the clipboard:
+```bash
+macocr --clipboard
+```
+
 ### Options
 
 - `--fast`, `-f`: Use the fast recognition level (less accurate but quicker).
+- `--clipboard`, `-c`: OCR an image from the macOS clipboard.
 - `--fix`: Use macOS spell checker to clean up OCR results. *(experimental - not yet working)*
 - `--help`, `-h`: Show help information.
 

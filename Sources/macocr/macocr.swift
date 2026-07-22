@@ -6,7 +6,8 @@ import AppKit
 @main
 struct MacOCR: ParsableCommand {
     static let configuration = CommandConfiguration(
-        abstract: "A CLI tool to extract text from images using macOS Vision framework."
+        abstract: "A CLI tool to extract text from images using macOS Vision framework.",
+        version: "0.1.0"
     )
 
     @Argument(help: "The path to the image file to OCR. If omitted, reads from stdin.")
@@ -15,6 +16,9 @@ struct MacOCR: ParsableCommand {
     @Flag(name: .shortAndLong, help: "Use fast recognition level (less accurate).")
     var fast: Bool = false
 
+    @Flag(name: .shortAndLong, help: "OCR an image from the clipboard.")
+    var clipboard: Bool = false
+
     // TODO: --fix flag not working correctly - spell checker integration needs debugging
     @Flag(name: .long, help: "Use macOS spell checker to clean up the text result.")
     var fix: Bool = false
@@ -22,7 +26,16 @@ struct MacOCR: ParsableCommand {
     mutating func run() throws {
         let nsImage: NSImage
 
-        if let path = imagePath {
+        if clipboard {
+            guard imagePath == nil else {
+                throw ValidationError("Specify either an image path or --clipboard, not both.")
+            }
+
+            guard let img = NSImage(pasteboard: .general) else {
+                throw ValidationError("The clipboard does not contain a valid image.")
+            }
+            nsImage = img
+        } else if let path = imagePath {
             let expandedPath = NSString(string: path).expandingTildeInPath
             let url = URL(fileURLWithPath: expandedPath)
 
