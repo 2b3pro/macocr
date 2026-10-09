@@ -2,7 +2,7 @@
 
 ![macocr: text from any image or PDF](docs/macocr-hero.png)
 
-A lightweight macOS Command Line Interface (CLI) tool for Optical Character Recognition (OCR), powered by the Apple Vision framework.
+A lightweight macOS command-line tool that pulls text out of images, PDFs, the screen and the clipboard, using Apple's Vision framework for OCR.
 
 ## Features
 
@@ -10,7 +10,7 @@ A lightweight macOS Command Line Interface (CLI) tool for Optical Character Reco
 - **Flexible Inputs:** OCR image files, PDFs, piped image or PDF data, clipboard images, or screen captures.
 - **PDF Support:** OCR every page of a scanned PDF, or pick pages with `--pages`.
 - **Optional Cleanup:** Fix OCR mistakes with Apple's on-device language model (`--cleanup`), with safety checks on numbers and lines.
-- **Screen Capture:** Capture the full screen or a specific rectangle, with optional image saving.
+- **Screen Capture:** Select an area of the screen like ⌘⇧4, or capture a fixed rectangle or the whole screen, with optional image saving.
 - **Composable Output:** Print recognized text to stdout or copy it to the clipboard.
 - **Language Selection:** Choose a recognition language or list the languages supported by Vision.
 - **Fast/Accurate Modes:** Choose between speed and precision.
@@ -19,14 +19,14 @@ A lightweight macOS Command Line Interface (CLI) tool for Optical Character Reco
 
 ### Prerequisites
 
-- macOS 11.0 or later
-- Swift 5.9+ (included with Xcode)
+- macOS 12 or later to run. `--cleanup` also needs macOS 26.4 or later with Apple Intelligence turned on.
+- Xcode 26.4 or later to build from source.
 
 ### Building from Source
 
 1. Clone the repository:
    ```bash
-   git clone <repository-url>
+   git clone https://github.com/2b3pro/macocr.git
    cd macocr
    ```
 
@@ -64,19 +64,19 @@ Reading an image from the clipboard:
 macocr --clipboard
 ```
 
-Capturing the screen:
+Selecting an area of the screen (drag to select, press Space to pick a window, or Esc to cancel):
 ```bash
 macocr --screen
 ```
 
-Screen capture requires Screen Recording permission in **System Settings → Privacy & Security → Screen & System Audio Recording**.
+Screen capture requires Screen Recording permission for the app you run macocr from (Terminal, iTerm, VS Code and so on), in **System Settings → Privacy & Security → Screen & System Audio Recording**.
 
 ### Options
 
 - `--fast`, `-f`: Use the fast recognition level (less accurate but quicker).
 - `--clipboard`, `-c`: OCR an image from the macOS clipboard.
-- `--screen`, `-s`: Capture the screen and OCR the captured image.
-- `--rect`, `-R`: Capture `x,y,width,height` instead of the full screen; requires `--screen`.
+- `--screen`, `-s`: Select an area of the screen to OCR. Drag to select, press Space to pick a window, or press Esc to cancel (exits with status 1).
+- `--rect`, `-R`: Capture `x,y,width,height` (in points), or `full` for the whole screen, instead of selecting; requires `--screen`.
 - `--save-image PATH`: Save a screen capture as PNG, JPEG, or TIFF; requires `--screen`.
 - `--language`, `-l`: Set a Vision recognition language identifier such as `en-US`.
 - `--list-languages`: List supported recognition languages.
@@ -120,9 +120,14 @@ Capture a screen region and retain the captured image:
 macocr --screen --rect 100,100,800,600 --save-image capture.png
 ```
 
-Capture the screen and copy the recognized text:
+Select an area and copy its text:
 ```bash
 macocr --screen --copy
+```
+
+Read the whole screen without any interaction (useful in scripts):
+```bash
+macocr --screen --rect full
 ```
 
 OCR the first three pages of a PDF:
@@ -139,6 +144,12 @@ Recognize French text in a clipboard image:
 ```bash
 macocr --clipboard --language fr-FR
 ```
+
+## Changelog
+
+- **0.3.0:** `--screen` opens the system area selector (drag to select, Space to pick a window, Esc to cancel). `--rect full` captures the whole screen without interaction.
+- **0.2.0:** PDF input with `--pages` and `--text-layer`. `--cleanup` with Apple's on-device language model. Screen capture with `--rect` and `--save-image`, plus `--language`, `--list-languages` and `--copy`.
+- **0.1.0:** OCR of image files, stdin and the clipboard, with `--fast` and the experimental `--fix`.
 
 ---
 

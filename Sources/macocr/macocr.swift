@@ -15,7 +15,7 @@ struct MacOCR: AsyncParsableCommand {
     static let configuration = CommandConfiguration(
         commandName: "macocr",
         abstract: "A CLI tool to extract text from images and PDFs using macOS Vision framework.",
-        version: "0.2.0"
+        version: "0.3.0"
     )
 
     // Pages are rendered at this resolution, with the longest side capped to bound memory.
@@ -31,10 +31,10 @@ struct MacOCR: AsyncParsableCommand {
     @Flag(name: .shortAndLong, help: "OCR an image from the clipboard.")
     var clipboard: Bool = false
 
-    @Flag(name: .shortAndLong, help: "Capture the screen and OCR the captured image.")
+    @Flag(name: .shortAndLong, help: "Select an area of the screen to OCR: drag to select, press Space to pick a window, or Esc to cancel.")
     var screen: Bool = false
 
-    @Option(name: [.customShort("R"), .long], help: "Capture rectangle as x,y,width,height (requires --screen).")
+    @Option(name: [.customShort("R"), .long], help: "Capture x,y,width,height, or 'full' for the whole screen, instead of selecting (requires --screen).")
     var rect: String?
 
     @Option(name: .long, help: "Save the captured screen image as PNG, JPEG, or TIFF (requires --screen).")
@@ -339,10 +339,13 @@ struct MacOCR: AsyncParsableCommand {
 
     static func captureScreen(rect: String?) throws -> NSImage {
         let captureRect: CGRect
-        if let rect {
-            captureRect = try parseCaptureRect(rect)
-        } else {
+        switch rect?.lowercased() {
+        case nil:
+            return try selectScreenArea()
+        case "full":
             captureRect = .infinite
+        case let rect?:
+            captureRect = try parseCaptureRect(rect)
         }
 
         guard let cgImage = CGWindowListCreateImage(
@@ -359,6 +362,34 @@ struct MacOCR: AsyncParsableCommand {
         return NSImage(cgImage: cgImage, size: .zero)
     }
 
+    /// Opens the system screenshot selector and returns the selected area.
+    static func selectScreenArea() throws -> NSImage {
+        let url = FileManager.default.temporaryDirectory
+            .appendingPathComponent("macocr-selection-\(UUID().uuidString).png")
+        defer { try? FileManager.default.removeItem(at: url) }
+
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/usr/sbin/screencapture")
+        // -i: interactive selection (Space switches to window selection), -o: no window shadow, -x: no sound.
+        process.arguments = ["-i", "-o", "-x", url.path]
+        do {
+            try process.run()
+        } catch {
+            throw ValidationError("Could not start the screen selector: \(error.localizedDescription)")
+        }
+        process.waitUntilExit()
+
+        // Pressing Esc leaves no file behind.
+        guard FileManager.default.fileExists(atPath: url.path) else {
+            warn("screen selection cancelled.")
+            throw ExitCode.failure
+        }
+        guard let data = try? Data(contentsOf: url), let image = NSImage(data: data) else {
+            throw ValidationError("Could not read the selected screen area.")
+        }
+        return image
+    }
+
     static func parseCaptureRect(_ value: String) throws -> CGRect {
         let components = value.split(separator: ",", omittingEmptySubsequences: false)
         guard components.count == 4,
@@ -369,7 +400,7 @@ struct MacOCR: AsyncParsableCommand {
               [x, y, width, height].allSatisfy({ $0.isFinite }),
               width > 0,
               height > 0 else {
-            throw ValidationError("--rect must be x,y,width,height with positive width and height.")
+            throw ValidationError("--rect must be 'full' or x,y,width,height with positive width and height.")
         }
 
         return CGRect(x: x, y: y, width: width, height: height)
